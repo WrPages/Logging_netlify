@@ -138,19 +138,31 @@ async function enter(group){
 async function loadData(){
   const cfg = GISTS[currentGroup]
 
-  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-  const uData = await u.json()
-  usersData = JSON.parse(uData.files[cfg.fileUsers].content || "{}")
+  try {
 
-  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-  const iData = await i.json()
+    // USERS
+    const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
+    const uData = await u.json()
 
-  onlineIDs = (iData.files[cfg.fileIds].content || "")
-    .split("\n")
-    .map(x=>x.trim())
-    .filter(x=>x)
+    usersData = JSON.parse(
+      uData.files[cfg.fileUsers]?.content || "{}"
+    )
 
-  render()
+    // IDS
+    const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
+    const iData = await i.json()
+
+    onlineIDs = (iData.files[cfg.fileIds]?.content || "")
+      .split("\n")
+      .map(x => x.trim())
+      .filter(x => x && x !== "\u200B") // 🔥 FIX CLAVE
+
+    render()
+
+  } catch (err) {
+    console.error("LOAD ERROR:", err)
+    alert("Error cargando datos")
+  }
 }
 
 // ===== RENDER =====
