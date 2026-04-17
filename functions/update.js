@@ -1,35 +1,58 @@
-export async function handler(event) {
+const fetch = require("node-fetch")
 
-  const { action, id } = JSON.parse(event.body);
+exports.handler = async (event) => {
 
-  const GIST_ID = process.env.GIST_ONLINE;
-  const TOKEN = process.env.GITHUB_TOKEN;
+  const { action, id, group } = JSON.parse(event.body)
 
-  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-    headers: { Authorization: `Bearer ${TOKEN}` }
-  });
+  const GROUP_GISTS = {
+    Trainer: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
+    Gym_Leader: "e110c37b3e0b8de83a33a1b0a5eb64e8",
+    Elite_Four: "d9db3a72fed74c496fd6cc830f9ca6e9"
+  }
 
-  const data = await res.json();
-  const file = Object.keys(data.files)[0];
+  const GROUP_FILES = {
+    Trainer: "trainer_ids.txt",
+    Gym_Leader: "gym_ids.txt",
+    Elite_Four: "elite_ids.txt"
+  }
 
-  let content = data.files[file].content || "";
-  let ids = content.split("\n").filter(Boolean);
+  const TOKEN = process.env.GITHUB_TOKEN
 
-  if (action === "online" && !ids.includes(id)) ids.push(id);
-  if (action === "offline") ids = ids.filter(x => x !== id);
+  const gistId = GROUP_GISTS[group]
+  const file = GROUP_FILES[group]
 
-  await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: {
+      Authorization: `Bearer ${TOKEN}`
+    }
+  })
+
+  const gist = await res.json()
+
+  let ids = (gist.files[file].content || "")
+    .split("\n")
+    .filter(x => x)
+
+  ids = ids.filter(x => x !== id)
+
+  if (action === "online") ids.push(id)
+
+  const content = ids.join("\n") || "\u200B"
+
+  await fetch(`https://api.github.com/gists/${gistId}`, {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${TOKEN}` },
+    headers: {
+      Authorization: `Bearer ${TOKEN}`
+    },
     body: JSON.stringify({
       files: {
-        [file]: { content: ids.join("\n") }
+        [file]: { content }
       }
     })
-  });
+  })
 
   return {
     statusCode: 200,
-    body: "✅ Listo"
-  };
+    body: "OK"
+  }
 }
