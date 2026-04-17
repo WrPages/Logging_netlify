@@ -9,48 +9,55 @@ body { margin:0; font-family:Arial; background:#0f172a; color:white; }
 
 #home { text-align:center; padding:80px; }
 
-h1 { font-size:48px; margin-bottom:40px; }
+h1 { font-size:48px; }
 
 .group-btn {
-  padding:20px 40px; margin:10px; font-size:20px;
-  border-radius:12px; border:none; cursor:pointer;
-  background:#3b82f6; color:white;
+  padding:20px 40px;
+  margin:10px;
+  font-size:20px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  background:#3b82f6;
+  color:white;
 }
 
 #dashboard { display:none; padding:20px; }
 
 .container {
-  display:flex; gap:20px; height:60vh; margin-bottom:40px;
+  display:flex;
+  gap:20px;
+  height:60vh;
 }
 
 .column {
-  flex:1; background:#1e293b; border-radius:12px;
-  padding:10px; overflow-y:auto;
+  flex:1;
+  background:#1e293b;
+  border-radius:12px;
+  padding:10px;
+  overflow:auto;
 }
 
 .user {
-  padding:14px; margin:8px; border-radius:12px;
-  cursor:pointer; text-align:center; font-weight:bold;
-  transition:0.25s;
+  padding:12px;
+  margin:8px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+  text-align:center;
+  transition:0.2s;
 }
 
-.offline { background:#374151; }
 .online { background:#22c55e; }
+.offline { background:#374151; }
 
 .user:hover { transform:scale(1.05); }
 
-#actions {
-  margin-top:20px; background:#1e293b;
-  padding:20px; border-radius:12px;
-}
-
-input { margin:8px; padding:10px; border-radius:8px; border:none; }
-
-button { margin:8px; padding:10px; border-radius:8px; border:none; cursor:pointer; }
-
 #allUsers {
-  margin-top:20px; border-top:1px solid #334155;
-  padding-top:10px; white-space:pre-line;
+  margin-top:20px;
+  border-top:1px solid #334155;
+  padding-top:10px;
+  white-space:pre-line;
 }
 </style>
 </head>
@@ -80,20 +87,7 @@ button { margin:8px; padding:10px; border-radius:8px; border:none; cursor:pointe
     </div>
   </div>
 
-  <div id="actions">
-    <input id="mainId" placeholder="Main ID">
-    <input id="secId" placeholder="Secondary ID">
-
-    <br>
-
-    <button onclick="register()">Register</button>
-    <button onclick="changeId()">Change ID</button>
-    <button onclick="addSec()">Add Sec</button>
-    <button onclick="addVIP()">VIP</button>
-
-    <div id="allUsers"></div>
-  </div>
-
+  <div id="allUsers"></div>
 </div>
 
 <script>
@@ -104,7 +98,7 @@ let currentGroup = null
 let usersData = {}
 let onlineIDs = []
 
-const GISTS = {
+const GROUPS = {
   Trainer: {
     users: "1c066922bc39ac136b6f234fad6d9420",
     ids: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
@@ -125,7 +119,6 @@ const GISTS = {
   }
 }
 
-// ===== ENTER =====
 async function enter(group){
   currentGroup = group
   home.style.display = "none"
@@ -134,38 +127,25 @@ async function enter(group){
   await loadData()
 }
 
-// ===== LOAD =====
 async function loadData(){
-  const cfg = GISTS[currentGroup]
+  const cfg = GROUPS[currentGroup]
 
-  try {
+  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
+  const uData = await u.json()
 
-    // USERS
-    const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-    const uData = await u.json()
+  usersData = JSON.parse(uData?.files?.[cfg.fileUsers]?.content || "{}")
 
-    usersData = JSON.parse(
-      uData.files[cfg.fileUsers]?.content || "{}"
-    )
+  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
+  const iData = await i.json()
 
-    // IDS
-    const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-    const iData = await i.json()
+  onlineIDs = (iData?.files?.[cfg.fileIds]?.content || "")
+    .split("\n")
+    .map(x => x.trim())
+    .filter(x => x && x !== "\u200B")
 
-    onlineIDs = (iData.files[cfg.fileIds]?.content || "")
-      .split("\n")
-      .map(x => x.trim())
-      .filter(x => x && x !== "\u200B") // 🔥 FIX CLAVE
-
-    render()
-
-  } catch (err) {
-    console.error("LOAD ERROR:", err)
-    alert("Error cargando datos")
-  }
+  render()
 }
 
-// ===== RENDER =====
 function render(){
   offlineList.innerHTML = ""
   onlineList.innerHTML = ""
@@ -181,59 +161,43 @@ function render(){
     div.className = "user " + (isOnline ? "online" : "offline")
     div.innerText = user.name
 
-    div.onclick = () => toggleUser(user)
+    div.onclick = () => toggle(user)
 
     if(isOnline) onlineList.appendChild(div)
     else offlineList.appendChild(div)
   }
 
-  let list = "Usuarios registrados:\n\n"
+  let txt = "Usuarios registrados:\n\n"
   for(let u in usersData){
-    list += usersData[u].name + "\n"
+    txt += usersData[u].name + "\n"
   }
-  allUsers.innerText = list
+
+  allUsers.innerText = txt
 }
 
-// ===== TOGGLE (USANDO TU API QUE SÍ FUNCIONA) =====
-async function toggleUser(user){
+async function toggle(user){
 
   let id = user.main_id
 
   if(user.sec_id){
-    const useMain = confirm("OK = MAIN\nCancel = SEC")
+    const useMain = confirm("OK = MAIN / Cancel = SEC")
     id = useMain ? user.main_id : user.sec_id
   }
 
   const isOnline = onlineIDs.includes(id)
   const action = isOnline ? "offline" : "online"
 
-  try {
-
-    const res = await fetch(API, {
-      method: "POST",
-      body: JSON.stringify({
-        action,
-        id,
-        group: currentGroup
-      })
+  await fetch(API, {
+    method: "POST",
+    body: JSON.stringify({
+      action,
+      id,
+      group: currentGroup
     })
+  })
 
-    const txt = await res.text()
-    console.log(txt)
-
-    await loadData()
-
-  } catch(e){
-    console.error(e)
-    alert("Error API")
-  }
+  await loadData()
 }
-
-// ===== BOTONES (los mantienes) =====
-function register(){ alert("usa Discord") }
-function changeId(){ alert("usa Discord") }
-function addSec(){ alert("usa Discord") }
-function addVIP(){ alert("usa Discord") }
 
 </script>
 
