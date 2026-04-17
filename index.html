@@ -10,287 +10,147 @@ body {
   font-family: Arial;
   background: #0f172a;
   color: white;
-}
-
-/* HOME */
-#home {
   text-align: center;
-  padding: 80px;
 }
 
 h1 {
-  font-size: 48px;
-  margin-bottom: 40px;
-}
-
-.group-btn {
-  padding: 20px 40px;
-  margin: 10px;
-  font-size: 20px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  background: #3b82f6;
-  color: white;
-}
-
-.group-btn:hover {
-  background: #2563eb;
-}
-
-/* DASHBOARD */
-#dashboard {
-  display: none;
-  padding: 20px;
+  margin-top: 40px;
 }
 
 .container {
   display: flex;
+  justify-content: center;
   gap: 20px;
-  height: 60vh;
-  margin-bottom: 40px;
+  margin-top: 30px;
 }
 
 .column {
-  flex: 1;
+  width: 40%;
   background: #1e293b;
-  border-radius: 12px;
   padding: 10px;
-  overflow-y: auto;
-}
-
-.title {
-  text-align: center;
-  font-size: 22px;
-  margin-bottom: 10px;
-}
-
-/* USER */
-.user {
-  padding: 14px;
-  margin: 8px;
   border-radius: 12px;
-  cursor: pointer;
-  text-align: center;
-  font-weight: bold;
-  transition: all 0.25s ease;
 }
 
-.offline {
-  background: #374151;
+.user {
+  padding: 12px;
+  margin: 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
 .online {
   background: #22c55e;
 }
 
+.offline {
+  background: #374151;
+}
+
 .user:hover {
   transform: scale(1.05);
-}
-
-/* ACTIONS */
-#actions {
-  margin-top: 20px;
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-}
-
-input {
-  margin: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-}
-
-button {
-  margin: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-#allUsers {
-  margin-top: 20px;
-  border-top: 1px solid #334155;
-  padding-top: 10px;
-  white-space: pre-line;
 }
 </style>
 </head>
 
 <body>
 
-<!-- HOME -->
-<div id="home">
-  <h1>🔥 Zenith Rise Logging</h1>
+<h1>🔥 Zenith Rise Logging</h1>
 
-  <button class="group-btn" onclick="enter('Trainer')">Trainer</button>
-  <button class="group-btn" onclick="enter('Gym_Leader')">Gym Leader</button>
-  <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
-</div>
+<select id="group">
+  <option value="Trainer">Trainer</option>
+  <option value="Gym_Leader">Gym Leader</option>
+  <option value="Elite_Four">Elite Four</option>
+</select>
 
-<!-- DASHBOARD -->
-<div id="dashboard">
-
-  <h2 id="groupTitle"></h2>
-
-  <div class="container">
-    
-    <div class="column">
-      <div class="title">🔴 Offline</div>
-      <div id="offlineList"></div>
-    </div>
-
-    <div class="column">
-      <div class="title">🟢 Online</div>
-      <div id="onlineList"></div>
-    </div>
-
+<div class="container">
+  <div class="column">
+    <h3>🔴 Offline</h3>
+    <div id="offline"></div>
   </div>
 
-  <div id="actions">
-    <input id="mainId" placeholder="Main ID">
-    <input id="secId" placeholder="Secondary ID">
-
-    <br>
-
-    <button onclick="register()">Register</button>
-    <button onclick="changeId()">Change ID</button>
-    <button onclick="addSec()">Add Sec</button>
-    <button onclick="addVIP()">VIP</button>
-
-    <div id="allUsers"></div>
+  <div class="column">
+    <h3>🟢 Online</h3>
+    <div id="online"></div>
   </div>
-
 </div>
+
+<p id="msg"></p>
 
 <script>
 
-const API = "/.netlify/functions/api"
+let users = {
+  "Ash": { main: "1111111111111111", sec: null },
+  "Misty": { main: "2222222222222222", sec: null },
+  "Brock": { main: "3333333333333333", sec: null }
+}
 
-let currentGroup = null
-let usersData = {}
 let onlineIDs = []
 
-const GISTS = {
-  Trainer: {
-    users: "1c066922bc39ac136b6f234fad6d9420",
-    ids: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
-    fileUsers: "trainer_users.json",
-    fileIds: "trainer_ids.txt"
-  },
-  Gym_Leader: {
-    users: "a3f5f3d8a2e6ddf2378fb3481dff49f6",
-    ids: "e110c37b3e0b8de83a33a1b0a5eb64e8",
-    fileUsers: "gym_users.json",
-    fileIds: "gym_ids.txt"
-  },
-  Elite_Four: {
-    users: "bb18eda2ea748723d8fe0131dd740b70",
-    ids: "d9db3a72fed74c496fd6cc830f9ca6e9",
-    fileUsers: "elite_users.json",
-    fileIds: "elite_ids.txt"
-  }
-}
+async function loadOnline() {
+  const group = document.getElementById("group").value
 
-// ===== ENTER =====
-async function enter(group){
-  currentGroup = group
-  home.style.display = "none"
-  dashboard.style.display = "block"
-  groupTitle.innerText = group
-  await loadData()
-}
+  const res = await fetch(`https://api.github.com/gists/${
+    group === "Trainer" ? "4edcf4d341cd4f7d5d0fb8a50f8b8c3c" :
+    group === "Gym_Leader" ? "e110c37b3e0b8de83a33a1b0a5eb64e8" :
+    "d9db3a72fed74c496fd6cc830f9ca6e9"
+  }`)
 
-// ===== LOAD =====
-async function loadData(){
-  const cfg = GISTS[currentGroup]
+  const data = await res.json()
 
-  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-  const uData = await u.json()
-  usersData = JSON.parse(uData.files[cfg.fileUsers].content || "{}")
+  const content = Object.values(data.files)[0].content
 
-  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-  const iData = await i.json()
-
-  onlineIDs = (iData.files[cfg.fileIds].content || "")
-    .split("\n")
-    .map(x=>x.trim())
-    .filter(x=>x)
+  onlineIDs = content.split("\n").filter(x=>x)
 
   render()
 }
 
-// ===== RENDER =====
-function render(){
-  offlineList.innerHTML = ""
-  onlineList.innerHTML = ""
+function render() {
 
-  for(let uid in usersData){
-    const user = usersData[uid]
+  offline.innerHTML = ""
+  online.innerHTML = ""
 
-    const isOnline =
-      onlineIDs.includes(user.main_id) ||
-      (user.sec_id && onlineIDs.includes(user.sec_id))
+  for (let name in users) {
+
+    const user = users[name]
+
+    const isOnline = onlineIDs.includes(user.main)
 
     const div = document.createElement("div")
     div.className = "user " + (isOnline ? "online" : "offline")
-    div.innerText = user.name
+    div.innerText = name
 
-    div.onclick = () => toggleUser(user)
+    div.onclick = () => toggle(user)
 
-    if(isOnline) onlineList.appendChild(div)
-    else offlineList.appendChild(div)
+    if (isOnline) online.appendChild(div)
+    else offline.appendChild(div)
   }
-
-  let list = "Usuarios registrados:\n\n"
-  for(let u in usersData){
-    list += usersData[u].name + "\n"
-  }
-  allUsers.innerText = list
 }
 
-// ===== TOGGLE ESTABLE =====
-async function toggleUser(user){
+async function toggle(user) {
 
-  let id = user.main_id
+  const group = document.getElementById("group").value
 
-  if(user.sec_id){
-    const useMain = confirm("OK = MAIN\nCancel = SEC")
-    id = useMain ? user.main_id : user.sec_id
-  }
+  const isOnline = onlineIDs.includes(user.main)
 
-  const isOnline = onlineIDs.includes(id)
-
-  // ⚡ CAMBIO LOCAL INMEDIATO
-  if(isOnline){
-    onlineIDs = onlineIDs.filter(x => x !== id)
-  } else {
-    onlineIDs.push(id)
-  }
-
-  render()
-
-  // 🔥 API EN SEGUNDO PLANO
   const action = isOnline ? "offline" : "online"
 
-  fetch(`${API}?action=${action}&id=${id}&group=${currentGroup}`)
-    .then(res => res.text())
-    .then(() => setTimeout(loadData, 800))
-    .catch(err => console.error("API error:", err))
+  const res = await fetch("/.netlify/functions/update", {
+    method: "POST",
+    body: JSON.stringify({
+      action,
+      id: user.main,
+      group
+    })
+  })
+
+  const txt = await res.text()
+  msg.innerText = txt
+
+  await loadOnline()
 }
 
-// ===== BOTONES (opcionales) =====
-function register(){ alert("Usa Discord para register") }
-function changeId(){ alert("Usa Discord para change") }
-function addSec(){ alert("Usa Discord para add_sec") }
-function addVIP(){ alert("Usa Discord para gp") }
+loadOnline()
 
 </script>
 
