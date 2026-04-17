@@ -12,7 +12,7 @@ body {
   color: white;
 }
 
-/* ===== HOME ===== */
+/* HOME */
 #home {
   text-align: center;
   padding: 80px;
@@ -38,7 +38,7 @@ h1 {
   background: #2563eb;
 }
 
-/* ===== DASHBOARD ===== */
+/* DASHBOARD */
 #dashboard {
   display: none;
   padding: 20px;
@@ -48,7 +48,7 @@ h1 {
   display: flex;
   gap: 20px;
   height: 60vh;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
 }
 
 .column {
@@ -65,7 +65,7 @@ h1 {
   margin-bottom: 10px;
 }
 
-/* ===== USER CARDS ===== */
+/* USERS */
 .user {
   padding: 14px;
   margin: 8px;
@@ -85,12 +85,12 @@ h1 {
 }
 
 .user:hover {
-  transform: translateY(-3px) scale(1.05);
+  transform: scale(1.05);
 }
 
-/* ===== ACTIONS ===== */
+/* ACTIONS */
 #actions {
-  margin-top: 40px;
+  margin-top: 30px;
   background: #1e293b;
   padding: 20px;
   border-radius: 12px;
@@ -117,8 +117,8 @@ button:hover {
 
 #allUsers {
   margin-top: 20px;
-  padding-top: 10px;
   border-top: 1px solid #334155;
+  padding-top: 10px;
   white-space: pre-line;
 }
 </style>
@@ -126,7 +126,6 @@ button:hover {
 
 <body>
 
-<!-- HOME -->
 <div id="home">
   <h1>🔥 Zenith Rise Logging</h1>
 
@@ -135,13 +134,12 @@ button:hover {
   <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
 </div>
 
-<!-- DASHBOARD -->
 <div id="dashboard">
 
   <h2 id="groupTitle"></h2>
 
   <div class="container">
-    
+
     <div class="column">
       <div class="title">🔴 Offline</div>
       <div id="offlineList"></div>
@@ -156,8 +154,8 @@ button:hover {
 
   <div id="actions">
 
-    <input id="mainId" placeholder="Main ID">
-    <input id="secId" placeholder="Secondary ID">
+    <input id="mainId" placeholder="Main ID (16 digits)">
+    <input id="secId" placeholder="Secondary ID (16 digits)">
 
     <br>
 
@@ -204,29 +202,33 @@ const GISTS = {
 // ===== ENTRAR =====
 async function enter(group){
   currentGroup = group
-
   home.style.display = "none"
   dashboard.style.display = "block"
   groupTitle.innerText = group
+  await reloadAll()
+}
 
+// ===== RECARGAR =====
+async function reloadAll(){
   await loadData()
   render()
 }
 
-// ===== CARGAR DATOS =====
+// ===== LOAD =====
 async function loadData(){
   const cfg = GISTS[currentGroup]
 
-  const resUsers = await fetch(`https://api.github.com/gists/${cfg.users}`)
+  const resUsers = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
   const dataUsers = await resUsers.json()
-  usersData = JSON.parse(dataUsers.files[cfg.fileUsers].content)
+  usersData = JSON.parse(dataUsers.files[cfg.fileUsers].content || "{}")
 
-  const resIDs = await fetch(`https://api.github.com/gists/${cfg.ids}`)
+  const resIDs = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
   const dataIDs = await resIDs.json()
 
-  onlineIDs = dataIDs.files[cfg.fileIds].content
+  onlineIDs = (dataIDs.files[cfg.fileIds].content || "")
     .split("\n")
-    .filter(x=>x)
+    .map(x => x.trim())
+    .filter(x => x)
 }
 
 // ===== RENDER =====
@@ -268,18 +270,16 @@ async function toggleUser(user){
     id = useMain ? user.main_id : user.sec_id
   }
 
-  const isOnline = onlineIDs.includes(id)
-
   try {
-    if(isOnline){
-      await fetch(`${API}?action=offline&id=${id}&group=${currentGroup}`)
-      onlineIDs = onlineIDs.filter(x => x !== id)
-    } else {
-      await fetch(`${API}?action=online&id=${id}&group=${currentGroup}`)
-      onlineIDs.push(id)
+
+    const res = await fetch(`${API}?action=toggle&id=${id}&group=${currentGroup}`)
+    const text = await res.text()
+
+    if(!res.ok){
+      throw new Error(text)
     }
 
-    render()
+    await reloadAll()
 
   } catch(e){
     alert("Error con API")
@@ -287,21 +287,21 @@ async function toggleUser(user){
   }
 }
 
-// ===== ACCIONES =====
+// ===== FUNCIONES (AVISO SI NO EXISTEN EN API) =====
 function register(){
-  fetch(`${API}?action=register&id=${mainId.value}&group=${currentGroup}`)
+  alert("⚠️ Necesita backend extendido")
 }
 
 function changeId(){
-  fetch(`${API}?action=change&id=${mainId.value}&group=${currentGroup}`)
+  alert("⚠️ Necesita backend extendido")
 }
 
 function addSec(){
-  fetch(`${API}?action=add_sec&id=${secId.value}&group=${currentGroup}`)
+  alert("⚠️ Necesita backend extendido")
 }
 
 function addVIP(){
-  fetch(`${API}?action=vip&id=${mainId.value}&group=${currentGroup}`)
+  alert("⚠️ Necesita backend extendido")
 }
 
 </script>
