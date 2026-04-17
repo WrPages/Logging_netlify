@@ -5,11 +5,21 @@
 <title>Zenith Rise Logging</title>
 
 <style>
-body { margin:0; font-family:Arial; background:#0f172a; color:white; }
+body {
+  margin:0;
+  font-family:Arial;
+  background:#0f172a;
+  color:white;
+}
 
-#home { text-align:center; padding:80px; }
+#home {
+  text-align:center;
+  padding:80px;
+}
 
-h1 { font-size:48px; }
+h1 {
+  font-size:48px;
+}
 
 .group-btn {
   padding:20px 40px;
@@ -22,7 +32,10 @@ h1 { font-size:48px; }
   color:white;
 }
 
-#dashboard { display:none; padding:20px; }
+#dashboard {
+  display:none;
+  padding:20px;
+}
 
 .container {
   display:flex;
@@ -43,15 +56,17 @@ h1 { font-size:48px; }
   margin:8px;
   border-radius:10px;
   cursor:pointer;
-  font-weight:bold;
   text-align:center;
+  font-weight:bold;
   transition:0.2s;
 }
 
 .online { background:#22c55e; }
 .offline { background:#374151; }
 
-.user:hover { transform:scale(1.05); }
+.user:hover {
+  transform:scale(1.05);
+}
 
 #allUsers {
   margin-top:20px;
@@ -88,6 +103,7 @@ h1 { font-size:48px; }
   </div>
 
   <div id="allUsers"></div>
+
 </div>
 
 <script>
@@ -119,38 +135,68 @@ const GROUPS = {
   }
 }
 
+// ================= ENTER =================
 async function enter(group){
   currentGroup = group
   home.style.display = "none"
   dashboard.style.display = "block"
   groupTitle.innerText = group
+
+  console.log("GRUPO:", group)
+
   await loadData()
 }
 
+// ================= LOAD SAFE =================
 async function loadData(){
   const cfg = GROUPS[currentGroup]
 
-  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-  const uData = await u.json()
+  try {
 
-  usersData = JSON.parse(uData?.files?.[cfg.fileUsers]?.content || "{}")
+    // USERS
+    const uRes = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
+    const uData = await uRes.json()
 
-  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-  const iData = await i.json()
+    const rawUsers = uData?.files?.[cfg.fileUsers]?.content
 
-  onlineIDs = (iData?.files?.[cfg.fileIds]?.content || "")
-    .split("\n")
-    .map(x => x.trim())
-    .filter(x => x && x !== "\u200B")
+    if (!rawUsers) {
+      usersData = {}
+    } else {
+      try {
+        usersData = JSON.parse(rawUsers)
+      } catch (e) {
+        console.error("JSON USERS roto")
+        usersData = {}
+      }
+    }
 
-  render()
+    // IDS
+    const iRes = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
+    const iData = await iRes.json()
+
+    const rawIds = iData?.files?.[cfg.fileIds]?.content || ""
+
+    onlineIDs = rawIds
+      .split("\n")
+      .map(x => x.trim())
+      .filter(x => x && x !== "\u200B")
+
+    render()
+
+  } catch (err) {
+    console.error("LOAD ERROR:", err)
+    usersData = {}
+    onlineIDs = []
+    render()
+  }
 }
 
+// ================= RENDER =================
 function render(){
   offlineList.innerHTML = ""
   onlineList.innerHTML = ""
 
-  for(let uid in usersData){
+  for (let uid in usersData){
     const user = usersData[uid]
 
     const isOnline =
@@ -163,23 +209,24 @@ function render(){
 
     div.onclick = () => toggle(user)
 
-    if(isOnline) onlineList.appendChild(div)
+    if (isOnline) onlineList.appendChild(div)
     else offlineList.appendChild(div)
   }
 
   let txt = "Usuarios registrados:\n\n"
-  for(let u in usersData){
+  for (let u in usersData){
     txt += usersData[u].name + "\n"
   }
 
   allUsers.innerText = txt
 }
 
+// ================= TOGGLE =================
 async function toggle(user){
 
   let id = user.main_id
 
-  if(user.sec_id){
+  if (user.sec_id){
     const useMain = confirm("OK = MAIN / Cancel = SEC")
     id = useMain ? user.main_id : user.sec_id
   }
@@ -187,16 +234,23 @@ async function toggle(user){
   const isOnline = onlineIDs.includes(id)
   const action = isOnline ? "offline" : "online"
 
-  await fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action,
-      id,
-      group: currentGroup
-    })
-  })
+  try {
 
-  await loadData()
+    await fetch(API, {
+      method: "POST",
+      body: JSON.stringify({
+        action,
+        id,
+        group: currentGroup
+      })
+    })
+
+    await loadData()
+
+  } catch (err) {
+    console.error("API ERROR:", err)
+    alert("Error API")
+  }
 }
 
 </script>
