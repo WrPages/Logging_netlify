@@ -1,10 +1,9 @@
 exports.handler = async (event) => {
   try {
-
     const { action, id, group } = event.queryStringParameters || {}
 
-    if (!group) {
-      return json({ error: "missing group" }, 400)
+    if (!group || !action) {
+      return json({ error: "missing params" }, 400)
     }
 
     const GROUPS = {
@@ -27,20 +26,20 @@ exports.handler = async (event) => {
 
     const TOKEN = process.env.GITHUB_TOKEN
 
-    // 🔥 leer gist
-    const gistRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
+    // 🔥 READ GIST
+    const readRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
         Accept: "application/vnd.github+json"
       }
     })
 
-    const gist = await gistRes.json()
-
+    const gist = await readRes.json()
     let content = gist.files[cfg.file]?.content || ""
+
     let ids = content.split("\n").map(x => x.trim()).filter(Boolean)
 
-    // ===== LOGICA ONLINE/OFFLINE =====
+    // 🔥 LOGIC
     if (action === "online") {
       if (!ids.includes(id)) ids.push(id)
     }
@@ -51,8 +50,8 @@ exports.handler = async (event) => {
 
     const newContent = ids.join("\n") || "\u200B"
 
-    // 🔥 guardar gist
-    await fetch(`https://api.github.com/gists/${cfg.gist}`, {
+    // 🔥 WRITE GIST
+    const writeRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -67,12 +66,13 @@ exports.handler = async (event) => {
       })
     })
 
-    return json({
-      ok: true,
-      group,
-      action,
-      ids
-    })
+    const text = await writeRes.text()
+
+    if (!writeRes.ok) {
+      return json({ error: text }, 500)
+    }
+
+    return json({ ok: true, ids })
 
   } catch (e) {
     return json({ error: e.message }, 500)
@@ -82,9 +82,7 @@ exports.handler = async (event) => {
 function json(data, status = 200) {
   return {
     statusCode: status,
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   }
 }
