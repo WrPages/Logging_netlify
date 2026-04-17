@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control PPM</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+<body class="bg-dark text-white">
+
+<div class="container mt-5">
+  <h2 class="text-center mb-4">🎮 Panel PPM</h2>
+
+  <div class="card p-4 bg-secondary">
+
+    <!-- ID -->
+    <div class="mb-3">
+      <label>ID (16 dígitos)</label>
+      <input type="text" id="userId" class="form-control">
+    </div>
+
+    <!-- Grupo -->
+    <div class="mb-3">
+      <label>Grupo</label>
+      <select id="group" class="form-select">
+        <option value="Trainer">Trainer</option>
+        <option value="Gym_Leader">Gym Leader</option>
+        <option value="Elite_Four">Elite Four</option>
+      </select>
+    </div>
+
+    <!-- BOTONES -->
+    <div class="d-grid gap-2">
+
+      <button class="btn btn-success" onclick="setOnline()">
+        🟢 Online
+      </button>
+
+      <button class="btn btn-danger" onclick="setOffline()">
+        🔴 Offline
+      </button>
+
+      <button class="btn btn-warning" onclick="addVIP()">
+        ⭐ Add VIP
+      </button>
+
+    </div>
+
+    <div class="mt-3" id="result"></div>
+
+  </div>
+</div>
+
+<script>
+
+const API = "https://add-ids.netlify.app/.netlify/functions/api";
+
+function getData() {
+  const id = document.getElementById("userId").value;
+  const group = document.getElementById("group").value;
+
+  if (!/^\d{16}$/.test(id)) {
+    alert("ID inválido");
+    return null;
+  }
+
+  return { id, group };
+}
+
+async function setOnline() {
+  const data = getData();
+  if (!data) return;
+
+  const res = await fetch(`${API}?action=online&id=${data.id}&group=${data.group}`);
+  document.getElementById("result").innerText = "🟢 Online enviado";
+}
+
+async function setOffline() {
+  const data = getData();
+  if (!data) return;
+
+  const res = await fetch(`${API}?action=offline&id=${data.id}&group=${data.group}`);
+  document.getElementById("result").innerText = "🔴 Offline enviado";
+}
+
+async function addVIP() {
+  const data = getData();
+  if (!data) return;
+
+  const res = await fetch(`${API}?action=vip&id=${data.id}&group=${data.group}`);
+  document.getElementById("result").innerText = "⭐ VIP enviado";
+}
+
+</script>
+
+</body>
+</html>
