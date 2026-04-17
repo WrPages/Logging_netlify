@@ -1,12 +1,27 @@
 exports.handler = async (event) => {
   try {
 
-    const body = JSON.parse(event.body)
+    // 🔥 SOPORTA POST Y GET
+    let action, id, group
 
-    const { action, id, group } = body
+    if (event.httpMethod === "POST") {
+      const body = JSON.parse(event.body || "{}")
+      action = body.action
+      id = body.id
+      group = body.group
+    } else {
+      const params = event.queryStringParameters || {}
+      action = params.action
+      id = params.id
+      group = params.group
+    }
 
-    if (!id || !group) {
-      return { statusCode: 400, body: "Missing data" }
+    if (!id) {
+      return { statusCode: 400, body: "Missing ID" }
+    }
+
+    if (!group) {
+      return { statusCode: 400, body: "Missing group" }
     }
 
     const GROUP_GISTS = {
@@ -26,7 +41,7 @@ exports.handler = async (event) => {
 
     const TOKEN = process.env.GITHUB_TOKEN
 
-    // 🔥 GET
+    // 🔥 LEER GIST
     const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -57,8 +72,8 @@ exports.handler = async (event) => {
 
     let newContent = ids.join("\n") || "\u200B"
 
-    // 🔥 PATCH
-    await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    // 🔥 GUARDAR
+    const updateRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -66,10 +81,17 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         files: {
-          [FILE_NAME]: { content: newContent }
+          [FILE_NAME]: {
+            content: newContent
+          }
         }
       })
     })
+
+    if (!updateRes.ok) {
+      const err = await updateRes.text()
+      return { statusCode: 500, body: err }
+    }
 
     return { statusCode: 200, body: "OK" }
 
