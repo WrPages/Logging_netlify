@@ -1,255 +1,123 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <title>Zenith Rise Logging</title>
 
 <style>
-body {
-  margin:0;
+body{
   font-family:Arial;
   background:#0f172a;
   color:white;
-}
-
-#home {
   text-align:center;
-  padding:80px;
 }
 
-h1 {
-  font-size:48px;
-}
-
-.group-btn {
-  padding:20px 40px;
-  margin:10px;
-  font-size:20px;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
-  background:#3b82f6;
-  color:white;
-}
-
-#dashboard {
-  display:none;
-  padding:20px;
-}
-
-.container {
+.container{
   display:flex;
   gap:20px;
-  height:60vh;
+  margin-top:20px;
 }
 
-.column {
+.box{
   flex:1;
   background:#1e293b;
-  border-radius:12px;
   padding:10px;
-  overflow:auto;
+  min-height:300px;
+  border-radius:10px;
 }
 
-.user {
-  padding:12px;
-  margin:8px;
+.user{
+  padding:10px;
+  margin:5px;
   border-radius:10px;
   cursor:pointer;
-  text-align:center;
-  font-weight:bold;
   transition:0.2s;
 }
 
-.online { background:#22c55e; }
-.offline { background:#374151; }
+.online{ background:#22c55e; }
+.offline{ background:#374151; }
 
-.user:hover {
-  transform:scale(1.05);
-}
-
-#allUsers {
-  margin-top:20px;
-  border-top:1px solid #334155;
-  padding-top:10px;
-  white-space:pre-line;
-}
+.user:hover{ transform:scale(1.05); }
 </style>
 </head>
 
 <body>
 
-<div id="home">
-  <h1>🔥 Zenith Rise Logging</h1>
-  <button class="group-btn" onclick="enter('Trainer')">Trainer</button>
-  <button class="group-btn" onclick="enter('Gym_Leader')">Gym Leader</button>
-  <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
-</div>
+<h1>Zenith Rise Logging</h1>
 
-<div id="dashboard">
+<button onclick="setGroup('Trainer')">Trainer</button>
+<button onclick="setGroup('Gym_Leader')">Gym Leader</button>
+<button onclick="setGroup('Elite_Four')">Elite Four</button>
 
-  <h2 id="groupTitle"></h2>
-
-  <div class="container">
-    <div class="column">
-      <h3>🔴 Offline</h3>
-      <div id="offlineList"></div>
-    </div>
-
-    <div class="column">
-      <h3>🟢 Online</h3>
-      <div id="onlineList"></div>
-    </div>
+<div class="container">
+  <div class="box">
+    <h3>Offline</h3>
+    <div id="offline"></div>
   </div>
 
-  <div id="allUsers"></div>
-
+  <div class="box">
+    <h3>Online</h3>
+    <div id="online"></div>
+  </div>
 </div>
 
 <script>
 
 const API = "/.netlify/functions/update"
 
-let currentGroup = null
-let usersData = {}
+let group = null
+let users = {}
 let onlineIDs = []
 
-const GROUPS = {
-  Trainer: {
-    users: "1c066922bc39ac136b6f234fad6d9420",
-    ids: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
-    fileUsers: "trainer_users.json",
-    fileIds: "trainer_ids.txt"
-  },
-  Gym_Leader: {
-    users: "a3f5f3d8a2e6ddf2378fb3481dff49f6",
-    ids: "e110c37b3e0b8de83a33a1b0a5eb64e8",
-    fileUsers: "gym_users.json",
-    fileIds: "gym_ids.txt"
-  },
-  Elite_Four: {
-    users: "bb18eda2ea748723d8fe0131dd740b70",
-    ids: "d9db3a72fed74c496fd6cc830f9ca6e9",
-    fileUsers: "elite_users.json",
-    fileIds: "elite_ids.txt"
-  }
+// 🔥 DEMO USERS (puedes conectar gist luego)
+users = {
+  "1": { name: "User A", main_id: "111" },
+  "2": { name: "User B", main_id: "222" },
+  "3": { name: "User C", main_id: "333" }
 }
 
-// ================= ENTER =================
-async function enter(group){
-  currentGroup = group
-  home.style.display = "none"
-  dashboard.style.display = "block"
-  groupTitle.innerText = group
-
-  console.log("GRUPO:", group)
-
-  await loadData()
+// ===== SET GROUP =====
+async function setGroup(g){
+  group = g
+  await load()
 }
 
-// ================= LOAD SAFE =================
-async function loadData(){
-  const cfg = GROUPS[currentGroup]
+// ===== LOAD IDS =====
+async function load(){
 
-  try {
+  const res = await fetch(`${API}?action=list&group=${group}`)
+  const data = await res.json()
 
-    // USERS
-    const uRes = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-    const uData = await uRes.json()
-
-    const rawUsers = uData?.files?.[cfg.fileUsers]?.content
-
-    if (!rawUsers) {
-      usersData = {}
-    } else {
-      try {
-        usersData = JSON.parse(rawUsers)
-      } catch (e) {
-        console.error("JSON USERS roto")
-        usersData = {}
-      }
-    }
-
-    // IDS
-    const iRes = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-    const iData = await iRes.json()
-
-    const rawIds = iData?.files?.[cfg.fileIds]?.content || ""
-
-    onlineIDs = rawIds
-      .split("\n")
-      .map(x => x.trim())
-      .filter(x => x && x !== "\u200B")
-
-    render()
-
-  } catch (err) {
-    console.error("LOAD ERROR:", err)
-    usersData = {}
-    onlineIDs = []
-    render()
-  }
+  onlineIDs = data.ids || []
+  render()
 }
 
-// ================= RENDER =================
+// ===== RENDER UI =====
 function render(){
-  offlineList.innerHTML = ""
-  onlineList.innerHTML = ""
 
-  for (let uid in usersData){
-    const user = usersData[uid]
+  offline.innerHTML = ""
+  online.innerHTML = ""
 
-    const isOnline =
-      onlineIDs.includes(user.main_id) ||
-      (user.sec_id && onlineIDs.includes(user.sec_id))
+  for(const k in users){
+
+    const u = users[k]
+    const isOnline = onlineIDs.includes(u.main_id)
 
     const div = document.createElement("div")
     div.className = "user " + (isOnline ? "online" : "offline")
-    div.innerText = user.name
+    div.innerText = u.name
 
-    div.onclick = () => toggle(user)
+    div.onclick = async () => {
 
-    if (isOnline) onlineList.appendChild(div)
-    else offlineList.appendChild(div)
-  }
+      const action = isOnline ? "offline" : "online"
 
-  let txt = "Usuarios registrados:\n\n"
-  for (let u in usersData){
-    txt += usersData[u].name + "\n"
-  }
+      await fetch(`${API}?action=${action}&id=${u.main_id}&group=${group}`)
 
-  allUsers.innerText = txt
-}
+      await load()
+    }
 
-// ================= TOGGLE =================
-async function toggle(user){
-
-  let id = user.main_id
-
-  if (user.sec_id){
-    const useMain = confirm("OK = MAIN / Cancel = SEC")
-    id = useMain ? user.main_id : user.sec_id
-  }
-
-  const isOnline = onlineIDs.includes(id)
-  const action = isOnline ? "offline" : "online"
-
-  try {
-
-    await fetch(API, {
-      method: "POST",
-      body: JSON.stringify({
-        action,
-        id,
-        group: currentGroup
-      })
-    })
-
-    await loadData()
-
-  } catch (err) {
-    console.error("API ERROR:", err)
-    alert("Error API")
+    if(isOnline) online.appendChild(div)
+    else offline.appendChild(div)
   }
 }
 
