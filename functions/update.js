@@ -1,48 +1,48 @@
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body || "{}")
 
-    const { action, id, group } = body
+    const { action, id, group } = event.queryStringParameters || {}
 
-    if (!id || !group) {
-      return { statusCode: 400, body: "Missing data" }
+    if (!group) {
+      return json({ error: "missing group" }, 400)
     }
 
-    const GROUP_GISTS = {
-      Trainer: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
-      Gym_Leader: "e110c37b3e0b8de83a33a1b0a5eb64e8",
-      Elite_Four: "d9db3a72fed74c496fd6cc830f9ca6e9"
+    const GROUPS = {
+      Trainer: {
+        gist: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
+        file: "trainer_ids.txt"
+      },
+      Gym_Leader: {
+        gist: "e110c37b3e0b8de83a33a1b0a5eb64e8",
+        file: "gym_ids.txt"
+      },
+      Elite_Four: {
+        gist: "d9db3a72fed74c496fd6cc830f9ca6e9",
+        file: "elite_ids.txt"
+      }
     }
 
-    const GROUP_FILES = {
-      Trainer: "trainer_ids.txt",
-      Gym_Leader: "gym_ids.txt",
-      Elite_Four: "elite_ids.txt"
-    }
-
-    const gistId = GROUP_GISTS[group]
-    const file = GROUP_FILES[group]
+    const cfg = GROUPS[group]
+    if (!cfg) return json({ error: "invalid group" }, 400)
 
     const TOKEN = process.env.GITHUB_TOKEN
 
-    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    // 🔥 leer gist
+    const gistRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
         Accept: "application/vnd.github+json"
       }
     })
 
-    const gist = await res.json()
-    let content = gist?.files?.[file]?.content || ""
+    const gist = await gistRes.json()
 
-    let ids = content
-      .split("\n")
-      .map(x => x.trim())
-      .filter(x => x && x !== "\u200B")
+    let content = gist.files[cfg.file]?.content || ""
+    let ids = content.split("\n").map(x => x.trim()).filter(Boolean)
 
+    // ===== LOGICA ONLINE/OFFLINE =====
     if (action === "online") {
-      ids = ids.filter(x => x !== id)
-      ids.push(id)
+      if (!ids.includes(id)) ids.push(id)
     }
 
     if (action === "offline") {
@@ -51,7 +51,8 @@ exports.handler = async (event) => {
 
     const newContent = ids.join("\n") || "\u200B"
 
-    await fetch(`https://api.github.com/gists/${gistId}`, {
+    // 🔥 guardar gist
+    await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -59,16 +60,31 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         files: {
-          [file]: {
+          [cfg.file]: {
             content: newContent
           }
         }
       })
     })
 
-    return { statusCode: 200, body: "OK" }
+    return json({
+      ok: true,
+      group,
+      action,
+      ids
+    })
 
-  } catch (err) {
-    return { statusCode: 500, body: err.message }
+  } catch (e) {
+    return json({ error: e.message }, 500)
+  }
+}
+
+function json(data, status = 200) {
+  return {
+    statusCode: status,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
   }
 }
