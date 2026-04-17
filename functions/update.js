@@ -2,7 +2,7 @@ exports.handler = async (event) => {
   try {
     const { action, id, group } = event.queryStringParameters || {}
 
-    if (!group || !action) {
+    if (!action || !id || !group) {
       return json({ error: "missing params" }, 400)
     }
 
@@ -26,6 +26,10 @@ exports.handler = async (event) => {
 
     const TOKEN = process.env.GITHUB_TOKEN
 
+    if (!TOKEN) {
+      return json({ error: "NO GITHUB TOKEN IN NETLIFY ENV" }, 500)
+    }
+
     // 🔥 READ GIST
     const readRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       headers: {
@@ -34,12 +38,25 @@ exports.handler = async (event) => {
       }
     })
 
-    const gist = await readRes.json()
-    let content = gist.files[cfg.file]?.content || ""
+    const readText = await readRes.text()
 
-    let ids = content.split("\n").map(x => x.trim()).filter(Boolean)
+    if (!readRes.ok) {
+      return json({
+        error: "READ GIST FAILED",
+        details: readText
+      }, 500)
+    }
 
-    // 🔥 LOGIC
+    const gist = JSON.parse(readText)
+
+    let content = gist.files?.[cfg.file]?.content || ""
+
+    let ids = content
+      .split("\n")
+      .map(x => x.trim())
+      .filter(Boolean)
+
+    // 🔥 LOGICA
     if (action === "online") {
       if (!ids.includes(id)) ids.push(id)
     }
@@ -50,7 +67,7 @@ exports.handler = async (event) => {
 
     const newContent = ids.join("\n") || "\u200B"
 
-    // 🔥 WRITE GIST
+    // 🔥 WRITE
     const writeRes = await fetch(`https://api.github.com/gists/${cfg.gist}`, {
       method: "PATCH",
       headers: {
@@ -66,13 +83,16 @@ exports.handler = async (event) => {
       })
     })
 
-    const text = await writeRes.text()
+    const writeText = await writeRes.text()
 
     if (!writeRes.ok) {
-      return json({ error: text }, 500)
+      return json({
+        error: "WRITE FAILED",
+        details: writeText
+      }, 500)
     }
 
-    return json({ ok: true, ids })
+    return json({ ok: true })
 
   } catch (e) {
     return json({ error: e.message }, 500)
@@ -82,7 +102,10 @@ exports.handler = async (event) => {
 function json(data, status = 200) {
   return {
     statusCode: status,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    },
+    body: JSON.stringify(data, null, 2)
   }
 }
