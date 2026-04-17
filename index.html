@@ -1,28 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Zenith Rise Logging</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+}
+
+/* ===== HOME ===== */
+#home {
+  text-align: center;
+  padding: 80px;
+}
+
+h1 {
+  font-size: 48px;
+  margin-bottom: 40px;
+}
+
+.group-btn {
+  padding: 20px 40px;
+  margin: 10px;
+  font-size: 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: #3b82f6;
+  color: white;
+}
+
+.group-btn:hover {
+  background: #2563eb;
+}
+
+/* ===== DASHBOARD ===== */
+#dashboard {
+  display: none;
+  padding: 20px;
+}
+
+.container {
+  display: flex;
+  gap: 20px;
+  height: 60vh;
+  margin-bottom: 40px;
+}
+
+.column {
+  flex: 1;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.title {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+/* ===== USER CARDS ===== */
+.user {
+  padding: 14px;
+  margin: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.offline {
+  background: #374151;
+}
+
+.online {
+  background: #22c55e;
+}
+
+.user:hover {
+  transform: scale(1.05);
+}
+
+/* ===== ACTIONS ===== */
+#actions {
+  margin-top: 40px;
+  background: #1e293b;
+  padding: 25px;
+  border-radius: 12px;
+}
+
+input {
+  margin: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+}
+
+button {
+  margin: 8px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+#allUsers {
+  margin-top: 25px;
+  padding-top: 15px;
+  border-top: 1px solid #334155;
+  white-space: pre-line;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HOME -->
+<div id="home">
+  <h1>🔥 Zenith Rise Logging</h1>
+
+  <button class="group-btn" onclick="enter('Trainer')">Trainer</button>
+  <button class="group-btn" onclick="enter('Gym_Leader')">Gym Leader</button>
+  <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+
+  <h2 id="groupTitle"></h2>
+
+  <div class="container">
+    <div class="column">
+      <div class="title">🔴 Offline</div>
+      <div id="offlineList"></div>
+    </div>
+
+    <div class="column">
+      <div class="title">🟢 Online</div>
+      <div id="onlineList"></div>
+    </div>
+  </div>
+
+  <div id="actions">
+
+    <input id="mainId" placeholder="Main ID">
+    <input id="secId" placeholder="Secondary ID">
+
+    <br>
+
+    <button onclick="register()">Register</button>
+    <button onclick="changeId()">Change ID</button>
+    <button onclick="addSec()">Add Sec</button>
+    <button onclick="addVIP()">VIP</button>
+
+    <div id="allUsers"></div>
+
+  </div>
+
+</div>
+
 <script>
 
-const TOKEN = "AQUI_TU_TOKEN_GITHUB" // ⚠️ fine-grained ONLY
+const API = "https://add-ids.netlify.app/.netlify/functions/api"
+
+// 🔥 ID único del usuario (simula Discord ID)
+let userId = localStorage.getItem("uid")
+if(!userId){
+  userId = crypto.randomUUID()
+  localStorage.setItem("uid", userId)
+}
+
 let currentGroup = null
 let usersData = {}
 let onlineIDs = []
 
 const GROUPS = {
   Trainer: {
-    ids: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
     users: "1c066922bc39ac136b6f234fad6d9420",
-    fileIds: "trainer_ids.txt",
-    fileUsers: "trainer_users.json"
+    ids: "4edcf4d341cd4f7d5d0fb8a50f8b8c3c",
+    fileUsers: "trainer_users.json",
+    fileIds: "trainer_ids.txt"
   },
   Gym_Leader: {
-    ids: "e110c37b3e0b8de83a33a1b0a5eb64e8",
     users: "a3f5f3d8a2e6ddf2378fb3481dff49f6",
-    fileIds: "gym_ids.txt",
-    fileUsers: "gym_users.json"
+    ids: "e110c37b3e0b8de83a33a1b0a5eb64e8",
+    fileUsers: "gym_users.json",
+    fileIds: "gym_ids.txt"
   },
   Elite_Four: {
-    ids: "d9db3a72fed74c496fd6cc830f9ca6e9",
     users: "bb18eda2ea748723d8fe0131dd740b70",
-    fileIds: "elite_ids.txt",
-    fileUsers: "elite_users.json"
+    ids: "d9db3a72fed74c496fd6cc830f9ca6e9",
+    fileUsers: "elite_users.json",
+    fileIds: "elite_ids.txt"
   }
 }
 
@@ -35,17 +215,15 @@ async function enter(group){
   await reloadAll()
 }
 
-// ===== LOAD =====
+// ===== LOAD DATA =====
 async function reloadAll(){
   const cfg = GROUPS[currentGroup]
 
-  // USERS
-  const u = await fetch(`https://api.github.com/gists/${cfg.users}`)
+  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
   const uData = await u.json()
   usersData = JSON.parse(uData.files[cfg.fileUsers].content || "{}")
 
-  // IDS
-  const i = await fetch(`https://api.github.com/gists/${cfg.ids}`)
+  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
   const iData = await i.json()
   onlineIDs = (iData.files[cfg.fileIds].content || "")
     .split("\n")
@@ -53,29 +231,6 @@ async function reloadAll(){
     .filter(x=>x)
 
   render()
-}
-
-// ===== SAVE IDS =====
-async function saveIDs(){
-
-  const cfg = GROUPS[currentGroup]
-
-  const content = onlineIDs.join("\n") || "\u200B"
-
-  await fetch(`https://api.github.com/gists/${cfg.ids}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      Accept: "application/vnd.github+json"
-    },
-    body: JSON.stringify({
-      files: {
-        [cfg.fileIds]: {
-          content: content
-        }
-      }
-    })
-  })
 }
 
 // ===== RENDER =====
@@ -99,9 +254,15 @@ function render(){
     if(isOnline) onlineList.appendChild(div)
     else offlineList.appendChild(div)
   }
+
+  let list = "Usuarios registrados:\n\n"
+  for(let u in usersData){
+    list += usersData[u].name + "\n"
+  }
+  allUsers.innerText = list
 }
 
-// ===== TOGGLE REAL =====
+// ===== TOGGLE (USA API) =====
 async function toggleUser(user){
 
   let id = user.main_id
@@ -111,14 +272,33 @@ async function toggleUser(user){
     id = useMain ? user.main_id : user.sec_id
   }
 
-  if(onlineIDs.includes(id)){
-    onlineIDs = onlineIDs.filter(x => x !== id)
-  } else {
-    onlineIDs.push(id)
+  try {
+    await fetch(`${API}?action=toggle&id=${id}&group=${currentGroup}`)
+    await reloadAll()
+  } catch(e){
+    alert("Error con API")
+    console.error(e)
   }
+}
 
-  await saveIDs()
-  await reloadAll()
+// ===== ACTIONS =====
+function register(){
+  fetch(`${API}?action=register&id=${mainId.value}&group=${currentGroup}&userId=${userId}&name=WebUser`)
+}
+
+function changeId(){
+  fetch(`${API}?action=change&id=${mainId.value}&group=${currentGroup}&userId=${userId}`)
+}
+
+function addSec(){
+  fetch(`${API}?action=add_sec&id=${secId.value}&group=${currentGroup}&userId=${userId}`)
+}
+
+function addVIP(){
+  fetch(`${API}?action=vip&id=${mainId.value}&group=${currentGroup}`)
 }
 
 </script>
+
+</body>
+</html>
