@@ -46,12 +46,17 @@ h1 {
 
 .container {
   display: flex;
+  gap: 20px;
   height: 60vh;
+  margin-bottom: 30px;
 }
 
 .column {
   flex: 1;
+  background: #1e293b;
+  border-radius: 12px;
   padding: 10px;
+  overflow-y: auto;
 }
 
 .title {
@@ -62,11 +67,13 @@ h1 {
 
 /* ===== USER CARDS ===== */
 .user {
-  padding: 12px;
-  margin: 6px;
-  border-radius: 10px;
+  padding: 14px;
+  margin: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: 0.3s;
+  text-align: center;
+  font-weight: bold;
+  transition: all 0.3s ease;
 }
 
 .offline {
@@ -78,15 +85,22 @@ h1 {
 }
 
 .user:hover {
-  transform: scale(1.05);
+  transform: translateY(-3px) scale(1.05);
 }
 
-/* ===== BOTTOM PANEL ===== */
+/* ===== ACTIONS ===== */
 #actions {
-  margin-top: 20px;
+  margin-top: 40px;
   background: #1e293b;
   padding: 20px;
   border-radius: 12px;
+}
+
+input {
+  margin: 5px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
 }
 
 button {
@@ -97,21 +111,22 @@ button {
   cursor: pointer;
 }
 
-/* ANIMACIÓN */
-.fade {
-  animation: fadeIn 0.4s;
+button:hover {
+  opacity: 0.9;
 }
 
-@keyframes fadeIn {
-  from {opacity: 0;}
-  to {opacity: 1;}
+#allUsers {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #334155;
+  white-space: pre-line;
 }
 </style>
 </head>
 
 <body>
 
-<!-- ===== HOME ===== -->
+<!-- HOME -->
 <div id="home">
   <h1>🔥 Zenith Rise Logging</h1>
 
@@ -120,7 +135,7 @@ button {
   <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
 </div>
 
-<!-- ===== DASHBOARD ===== -->
+<!-- DASHBOARD -->
 <div id="dashboard">
 
   <h2 id="groupTitle"></h2>
@@ -139,7 +154,6 @@ button {
 
   </div>
 
-  <!-- ===== ACTIONS ===== -->
   <div id="actions">
 
     <input id="mainId" placeholder="Main ID">
@@ -151,8 +165,6 @@ button {
     <button onclick="changeId()">Change ID</button>
     <button onclick="addSec()">Add Sec</button>
     <button onclick="addVIP()">VIP</button>
-
-    <br><br>
 
     <div id="allUsers"></div>
 
@@ -189,7 +201,7 @@ const GISTS = {
   }
 }
 
-// ===== ENTER GROUP =====
+// ===== ENTRAR =====
 async function enter(group){
   currentGroup = group
 
@@ -201,7 +213,7 @@ async function enter(group){
   render()
 }
 
-// ===== LOAD DATA =====
+// ===== CARGAR DATOS =====
 async function loadData(){
   const cfg = GISTS[currentGroup]
 
@@ -227,10 +239,10 @@ function render(){
 
     const isOnline =
       onlineIDs.includes(user.main_id) ||
-      onlineIDs.includes(user.sec_id)
+      (user.sec_id && onlineIDs.includes(user.sec_id))
 
     const div = document.createElement("div")
-    div.className = "user " + (isOnline ? "online" : "offline") + " fade"
+    div.className = "user " + (isOnline ? "online" : "offline")
     div.innerText = user.name
 
     div.onclick = () => toggleUser(user)
@@ -239,45 +251,43 @@ function render(){
     else offlineList.appendChild(div)
   }
 
-  // lista abajo
-  let list = "Usuarios:\n"
+  let list = "Usuarios registrados:\n\n"
   for(let u in usersData){
     list += usersData[u].name + "\n"
   }
   allUsers.innerText = list
 }
 
-// ===== TOGGLE USER =====
+// ===== TOGGLE =====
 async function toggleUser(user){
-
-  const hasSec = user.sec_id
 
   let id = user.main_id
 
-  if(hasSec){
-    const choice = confirm("OK = MAIN\nCancel = SECUNDARIA")
-    id = choice ? user.main_id : user.sec_id
+  if(user.sec_id){
+    const useMain = confirm("OK = MAIN\nCancel = SECUNDARIA")
+    id = useMain ? user.main_id : user.sec_id
   }
 
-  const isOnline =
-    onlineIDs.includes(user.main_id) ||
-    onlineIDs.includes(user.sec_id)
+  const isOnline = onlineIDs.includes(id)
 
-  if(isOnline){
-    await fetch(`${API}?action=offline&id=${id}&group=${currentGroup}`)
-  }else{
-    await fetch(`${API}?action=online&id=${id}&group=${currentGroup}`)
+  try {
+    if(isOnline){
+      await fetch(`${API}?action=offline&id=${id}&group=${currentGroup}`)
+      onlineIDs = onlineIDs.filter(x => x !== id)
+    } else {
+      await fetch(`${API}?action=online&id=${id}&group=${currentGroup}`)
+      onlineIDs.push(id)
+    }
+
+    render()
+
+  } catch(e){
+    alert("Error con API")
+    console.error(e)
   }
-
-  setTimeout(loadAndRender, 500)
 }
 
-async function loadAndRender(){
-  await loadData()
-  render()
-}
-
-// ===== ACTIONS =====
+// ===== ACCIONES =====
 function register(){
   fetch(`${API}?action=register&id=${mainId.value}&group=${currentGroup}`)
 }
