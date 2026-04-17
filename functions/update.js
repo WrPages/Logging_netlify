@@ -1,27 +1,11 @@
 exports.handler = async (event) => {
   try {
+    const body = JSON.parse(event.body || "{}")
 
-    // 🔥 SOPORTA POST Y GET
-    let action, id, group
+    const { action, id, group } = body
 
-    if (event.httpMethod === "POST") {
-      const body = JSON.parse(event.body || "{}")
-      action = body.action
-      id = body.id
-      group = body.group
-    } else {
-      const params = event.queryStringParameters || {}
-      action = params.action
-      id = params.id
-      group = params.group
-    }
-
-    if (!id) {
-      return { statusCode: 400, body: "Missing ID" }
-    }
-
-    if (!group) {
-      return { statusCode: 400, body: "Missing group" }
+    if (!id || !group) {
+      return { statusCode: 400, body: "Missing data" }
     }
 
     const GROUP_GISTS = {
@@ -36,44 +20,38 @@ exports.handler = async (event) => {
       Elite_Four: "elite_ids.txt"
     }
 
-    const GIST_ID = GROUP_GISTS[group]
-    const FILE_NAME = GROUP_FILES[group]
+    const gistId = GROUP_GISTS[group]
+    const file = GROUP_FILES[group]
 
     const TOKEN = process.env.GITHUB_TOKEN
 
-    // 🔥 LEER GIST
-    const gistRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
       headers: {
         Authorization: `Bearer ${TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "Cache-Control": "no-cache"
+        Accept: "application/vnd.github+json"
       }
     })
 
-    const gist = await gistRes.json()
-
-    let content = gist.files[FILE_NAME]?.content || ""
+    const gist = await res.json()
+    let content = gist?.files?.[file]?.content || ""
 
     let ids = content
       .split("\n")
       .map(x => x.trim())
-      .filter(x => x)
+      .filter(x => x && x !== "\u200B")
 
-    // 🟢 ONLINE
     if (action === "online") {
       ids = ids.filter(x => x !== id)
       ids.push(id)
     }
 
-    // 🔴 OFFLINE
     if (action === "offline") {
       ids = ids.filter(x => x !== id)
     }
 
-    let newContent = ids.join("\n") || "\u200B"
+    const newContent = ids.join("\n") || "\u200B"
 
-    // 🔥 GUARDAR
-    const updateRes = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    await fetch(`https://api.github.com/gists/${gistId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -81,24 +59,16 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         files: {
-          [FILE_NAME]: {
+          [file]: {
             content: newContent
           }
         }
       })
     })
 
-    if (!updateRes.ok) {
-      const err = await updateRes.text()
-      return { statusCode: 500, body: err }
-    }
-
     return { statusCode: 200, body: "OK" }
 
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: err.message
-    }
+    return { statusCode: 500, body: err.message }
   }
 }
