@@ -2,112 +2,171 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Reroll Panel PRO</title>
+<title>Zenith Rise Logging</title>
 
 <style>
 body {
+  margin: 0;
   font-family: Arial;
   background: #0f172a;
   color: white;
+}
+
+/* ===== HOME ===== */
+#home {
   text-align: center;
-  padding: 30px;
+  padding: 80px;
 }
 
-.box {
-  background: #1e293b;
-  padding: 20px;
+h1 {
+  font-size: 48px;
+  margin-bottom: 40px;
+}
+
+.group-btn {
+  padding: 20px 40px;
+  margin: 10px;
+  font-size: 20px;
   border-radius: 12px;
-  margin: 20px auto;
-  max-width: 500px;
-}
-
-input, select, button {
-  margin: 8px;
-  padding: 10px;
-  border-radius: 8px;
   border: none;
-}
-
-button {
   cursor: pointer;
   background: #3b82f6;
   color: white;
 }
 
-button:hover { background: #2563eb; }
+.group-btn:hover {
+  background: #2563eb;
+}
 
-.success { background: #22c55e; }
-.danger { background: #ef4444; }
+/* ===== DASHBOARD ===== */
+#dashboard {
+  display: none;
+  padding: 20px;
+}
 
-#output {
+.container {
+  display: flex;
+  height: 60vh;
+}
+
+.column {
+  flex: 1;
+  padding: 10px;
+}
+
+.title {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+/* ===== USER CARDS ===== */
+.user {
+  padding: 12px;
+  margin: 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.offline {
+  background: #374151;
+}
+
+.online {
+  background: #22c55e;
+}
+
+.user:hover {
+  transform: scale(1.05);
+}
+
+/* ===== BOTTOM PANEL ===== */
+#actions {
   margin-top: 20px;
-  white-space: pre-line;
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+button {
+  margin: 5px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+/* ANIMACIÓN */
+.fade {
+  animation: fadeIn 0.4s;
+}
+
+@keyframes fadeIn {
+  from {opacity: 0;}
+  to {opacity: 1;}
 }
 </style>
 </head>
 
 <body>
 
-<h1>🔥 Reroll Control Panel</h1>
+<!-- ===== HOME ===== -->
+<div id="home">
+  <h1>🔥 Zenith Rise Logging</h1>
 
-<div class="box">
-  <h3>Grupo</h3>
-  <select id="group">
-    <option value="Trainer">Trainer</option>
-    <option value="Gym_Leader">Gym Leader</option>
-    <option value="Elite_Four">Elite Four</option>
-  </select>
+  <button class="group-btn" onclick="enter('Trainer')">Trainer</button>
+  <button class="group-btn" onclick="enter('Gym_Leader')">Gym Leader</button>
+  <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
 </div>
 
-<div class="box">
-  <h3>Main ID</h3>
-  <input id="mainId" placeholder="16 digit ID">
-  <br>
-  <button onclick="register()">Register</button>
-  <button onclick="changeId()">Change ID</button>
-  <br>
-  <button class="success" onclick="online()">🟢 Online</button>
-  <button class="danger" onclick="offline()">🔴 Offline</button>
-</div>
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard">
 
-<div class="box">
-  <h3>Secondary ID</h3>
-  <input id="secId" placeholder="16 digit ID">
-  <br>
-  <button onclick="addSec()">Add Secondary</button>
-  <button onclick="onlineSec()">Online Sec</button>
-</div>
+  <h2 id="groupTitle"></h2>
 
-<div class="box">
-  <h3>VIP (GP)</h3>
-  <input id="vipId" placeholder="16 digit ID">
-  <br>
-  <button onclick="addVIP()">⭐ Add VIP</button>
-</div>
+  <div class="container">
+    
+    <div class="column">
+      <div class="title">🔴 Offline</div>
+      <div id="offlineList"></div>
+    </div>
 
-<div class="box">
-  <h3>Scheduler</h3>
-  <input id="onH" placeholder="Online Hour UTC">
-  <input id="onM" placeholder="Min">
-  <br>
-  <input id="offH" placeholder="Offline Hour UTC">
-  <input id="offM" placeholder="Min">
-  <br>
-  <button onclick="schedule()">Start Schedule</button>
-  <button class="danger" onclick="stopSchedule()">Stop</button>
-</div>
+    <div class="column">
+      <div class="title">🟢 Online</div>
+      <div id="onlineList"></div>
+    </div>
 
-<div class="box">
-  <h3>Listas</h3>
-  <button onclick="list()">📋 Users</button>
-  <button onclick="onlineList()">🟢 Online List</button>
-</div>
+  </div>
 
-<div id="output"></div>
+  <!-- ===== ACTIONS ===== -->
+  <div id="actions">
+
+    <input id="mainId" placeholder="Main ID">
+    <input id="secId" placeholder="Secondary ID">
+
+    <br>
+
+    <button onclick="register()">Register</button>
+    <button onclick="changeId()">Change ID</button>
+    <button onclick="addSec()">Add Sec</button>
+    <button onclick="addVIP()">VIP</button>
+
+    <br><br>
+
+    <div id="allUsers"></div>
+
+  </div>
+
+</div>
 
 <script>
 
 const API = "https://add-ids.netlify.app/.netlify/functions/api"
+
+let currentGroup = null
+let usersData = {}
+let onlineIDs = []
 
 const GISTS = {
   Trainer: {
@@ -130,126 +189,109 @@ const GISTS = {
   }
 }
 
-function g() { return document.getElementById("group").value }
-function show(t) { document.getElementById("output").innerText = t }
+// ===== ENTER GROUP =====
+async function enter(group){
+  currentGroup = group
 
-function valid(id){ return /^\d{16}$/.test(id) }
+  home.style.display = "none"
+  dashboard.style.display = "block"
+  groupTitle.innerText = group
 
-// ================= API ACTIONS =================
-
-async function online(){
-  let id = mainId.value
-  if(!valid(id)) return show("ID inválido")
-  await fetch(`${API}?action=online&id=${id}&group=${g()}`)
-  show("🟢 ONLINE enviado")
+  await loadData()
+  render()
 }
 
-async function offline(){
-  let id = mainId.value
-  if(!valid(id)) return show("ID inválido")
-  await fetch(`${API}?action=offline&id=${id}&group=${g()}`)
-  show("🔴 OFFLINE enviado")
+// ===== LOAD DATA =====
+async function loadData(){
+  const cfg = GISTS[currentGroup]
+
+  const resUsers = await fetch(`https://api.github.com/gists/${cfg.users}`)
+  const dataUsers = await resUsers.json()
+  usersData = JSON.parse(dataUsers.files[cfg.fileUsers].content)
+
+  const resIDs = await fetch(`https://api.github.com/gists/${cfg.ids}`)
+  const dataIDs = await resIDs.json()
+
+  onlineIDs = dataIDs.files[cfg.fileIds].content
+    .split("\n")
+    .filter(x=>x)
 }
 
-async function onlineSec(){
-  let id = secId.value
-  if(!valid(id)) return show("ID inválido")
-  await fetch(`${API}?action=online&id=${id}&group=${g()}`)
-  show("🟢 SEC ONLINE")
-}
+// ===== RENDER =====
+function render(){
+  offlineList.innerHTML = ""
+  onlineList.innerHTML = ""
 
-// ================= USERS =================
+  for(let uid in usersData){
+    const user = usersData[uid]
 
-async function register(){
-  let id = mainId.value
-  if(!valid(id)) return show("ID inválido")
+    const isOnline =
+      onlineIDs.includes(user.main_id) ||
+      onlineIDs.includes(user.sec_id)
 
-  await fetch(`${API}?action=register&id=${id}&group=${g()}`)
-  show("✅ Registrado")
-}
+    const div = document.createElement("div")
+    div.className = "user " + (isOnline ? "online" : "offline") + " fade"
+    div.innerText = user.name
 
-async function addSec(){
-  let id = secId.value
-  if(!valid(id)) return show("ID inválido")
+    div.onclick = () => toggleUser(user)
 
-  await fetch(`${API}?action=add_sec&id=${id}&group=${g()}`)
-  show("✅ Sec añadido")
-}
-
-async function changeId(){
-  let id = mainId.value
-  if(!valid(id)) return show("ID inválido")
-
-  await fetch(`${API}?action=change&id=${id}&group=${g()}`)
-  show("🔄 ID cambiado")
-}
-
-// ================= VIP =================
-
-async function addVIP(){
-  let id = vipId.value
-  if(!valid(id)) return show("ID inválido")
-
-  await fetch(`${API}?action=vip&id=${id}&group=${g()}`)
-  show("⭐ VIP enviado")
-}
-
-// ================= LIST =================
-
-async function list(){
-  const cfg = GISTS[g()]
-  const res = await fetch(`https://api.github.com/gists/${cfg.users}`)
-  const data = await res.json()
-
-  const users = JSON.parse(data.files[cfg.fileUsers].content)
-
-  let out = "📋 USERS:\n\n"
-  for(let u in users){
-    out += users[u].name + " → " + users[u].main_id + "\n"
+    if(isOnline) onlineList.appendChild(div)
+    else offlineList.appendChild(div)
   }
 
-  show(out)
+  // lista abajo
+  let list = "Usuarios:\n"
+  for(let u in usersData){
+    list += usersData[u].name + "\n"
+  }
+  allUsers.innerText = list
 }
 
-// ================= ONLINE LIST =================
+// ===== TOGGLE USER =====
+async function toggleUser(user){
 
-async function onlineList(){
-  const cfg = GISTS[g()]
+  const hasSec = user.sec_id
 
-  const res1 = await fetch(`https://api.github.com/gists/${cfg.ids}`)
-  const idsTxt = (await res1.json()).files[cfg.fileIds].content
+  let id = user.main_id
 
-  const res2 = await fetch(`https://api.github.com/gists/${cfg.users}`)
-  const users = JSON.parse((await res2.json()).files[cfg.fileUsers].content)
-
-  const ids = idsTxt.split("\n").filter(x=>x)
-
-  let out = "🟢 ONLINE:\n\n"
-
-  for(let u in users){
-    if(ids.includes(users[u].main_id) || ids.includes(users[u].sec_id)){
-      out += users[u].name + "\n"
-    }
+  if(hasSec){
+    const choice = confirm("OK = MAIN\nCancel = SECUNDARIA")
+    id = choice ? user.main_id : user.sec_id
   }
 
-  show(out)
+  const isOnline =
+    onlineIDs.includes(user.main_id) ||
+    onlineIDs.includes(user.sec_id)
+
+  if(isOnline){
+    await fetch(`${API}?action=offline&id=${id}&group=${currentGroup}`)
+  }else{
+    await fetch(`${API}?action=online&id=${id}&group=${currentGroup}`)
+  }
+
+  setTimeout(loadAndRender, 500)
 }
 
-// ================= SCHEDULER =================
-
-async function schedule(){
-  let onH = onH.value
-  let onM = onM.value
-  let offH = offH.value
-  let offM = offM.value
-
-  await fetch(`${API}?action=schedule&group=${g()}&onH=${onH}&onM=${onM}&offH=${offH}&offM=${offM}`)
-  show("⏱️ Schedule activado")
+async function loadAndRender(){
+  await loadData()
+  render()
 }
 
-async function stopSchedule(){
-  await fetch(`${API}?action=stop_schedule&group=${g()}`)
-  show("🛑 Schedule detenido")
+// ===== ACTIONS =====
+function register(){
+  fetch(`${API}?action=register&id=${mainId.value}&group=${currentGroup}`)
+}
+
+function changeId(){
+  fetch(`${API}?action=change&id=${mainId.value}&group=${currentGroup}`)
+}
+
+function addSec(){
+  fetch(`${API}?action=add_sec&id=${secId.value}&group=${currentGroup}`)
+}
+
+function addVIP(){
+  fetch(`${API}?action=vip&id=${mainId.value}&group=${currentGroup}`)
 }
 
 </script>
