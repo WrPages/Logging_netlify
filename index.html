@@ -12,7 +12,7 @@ body {
   color: white;
 }
 
-/* ===== HOME ===== */
+/* HOME */
 #home {
   text-align: center;
   padding: 80px;
@@ -38,7 +38,7 @@ h1 {
   background: #2563eb;
 }
 
-/* ===== DASHBOARD ===== */
+/* DASHBOARD */
 #dashboard {
   display: none;
   padding: 20px;
@@ -65,7 +65,7 @@ h1 {
   margin-bottom: 10px;
 }
 
-/* ===== USER CARDS ===== */
+/* USER CARDS */
 .user {
   padding: 14px;
   margin: 10px;
@@ -76,19 +76,14 @@ h1 {
   transition: all 0.3s ease;
 }
 
-.offline {
-  background: #374151;
-}
-
-.online {
-  background: #22c55e;
-}
+.offline { background: #374151; }
+.online { background: #22c55e; }
 
 .user:hover {
   transform: scale(1.05);
 }
 
-/* ===== ACTIONS ===== */
+/* ACTIONS */
 #actions {
   margin-top: 40px;
   background: #1e293b;
@@ -111,9 +106,7 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  opacity: 0.9;
-}
+button:hover { opacity: 0.9; }
 
 #allUsers {
   margin-top: 25px;
@@ -129,7 +122,6 @@ button:hover {
 <!-- HOME -->
 <div id="home">
   <h1>🔥 Zenith Rise Logging</h1>
-
   <button class="group-btn" onclick="enter('Trainer')">Trainer</button>
   <button class="group-btn" onclick="enter('Gym_Leader')">Gym Leader</button>
   <button class="group-btn" onclick="enter('Elite_Four')">Elite Four</button>
@@ -137,7 +129,6 @@ button:hover {
 
 <!-- DASHBOARD -->
 <div id="dashboard">
-
   <h2 id="groupTitle"></h2>
 
   <div class="container">
@@ -153,28 +144,23 @@ button:hover {
   </div>
 
   <div id="actions">
-
     <input id="mainId" placeholder="Main ID">
     <input id="secId" placeholder="Secondary ID">
-
     <br>
-
     <button onclick="register()">Register</button>
     <button onclick="changeId()">Change ID</button>
     <button onclick="addSec()">Add Sec</button>
     <button onclick="addVIP()">VIP</button>
 
     <div id="allUsers"></div>
-
   </div>
-
 </div>
 
 <script>
 
 const API = "https://add-ids.netlify.app/.netlify/functions/api"
 
-// 🔥 ID único del usuario (simula Discord ID)
+// ID local usuario (simula Discord)
 let userId = localStorage.getItem("uid")
 if(!userId){
   userId = crypto.randomUUID()
@@ -215,22 +201,28 @@ async function enter(group){
   await reloadAll()
 }
 
-// ===== LOAD DATA =====
+// ===== LOAD =====
 async function reloadAll(){
-  const cfg = GROUPS[currentGroup]
+  try {
+    const cfg = GROUPS[currentGroup]
 
-  const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
-  const uData = await u.json()
-  usersData = JSON.parse(uData.files[cfg.fileUsers].content || "{}")
+    const u = await fetch(`https://api.github.com/gists/${cfg.users}?t=${Date.now()}`)
+    const uData = await u.json()
+    usersData = JSON.parse(uData.files[cfg.fileUsers].content || "{}")
 
-  const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
-  const iData = await i.json()
-  onlineIDs = (iData.files[cfg.fileIds].content || "")
-    .split("\n")
-    .map(x=>x.trim())
-    .filter(x=>x)
+    const i = await fetch(`https://api.github.com/gists/${cfg.ids}?t=${Date.now()}`)
+    const iData = await i.json()
+    onlineIDs = (iData.files[cfg.fileIds].content || "")
+      .split("\n")
+      .map(x=>x.trim())
+      .filter(x=>x)
 
-  render()
+    render()
+
+  } catch(e){
+    console.error(e)
+    alert("Error cargando datos")
+  }
 }
 
 // ===== RENDER =====
@@ -262,8 +254,8 @@ function render(){
   allUsers.innerText = list
 }
 
-// ===== TOGGLE (USA API) =====
-async function toggleUser(user){
+// ===== TOGGLE ROBUSTO =====
+function toggleUser(user){
 
   let id = user.main_id
 
@@ -272,13 +264,35 @@ async function toggleUser(user){
     id = useMain ? user.main_id : user.sec_id
   }
 
-  try {
-    await fetch(`${API}?action=toggle&id=${id}&group=${currentGroup}`)
-    await reloadAll()
-  } catch(e){
-    alert("Error con API")
-    console.error(e)
+  const wasOnline = onlineIDs.includes(id)
+
+  // UI inmediata
+  if(wasOnline){
+    onlineIDs = onlineIDs.filter(x => x !== id)
+  } else {
+    onlineIDs.push(id)
   }
+
+  render()
+
+  // API sin romper
+  fetch(`${API}?action=toggle&id=${id}&group=${currentGroup}`)
+    .then(r => {
+      if(!r.ok) throw new Error()
+    })
+    .catch(() => {
+      // rollback si falla
+      if(wasOnline){
+        onlineIDs.push(id)
+      } else {
+        onlineIDs = onlineIDs.filter(x => x !== id)
+      }
+      render()
+      alert("Error con API")
+    })
+
+  // sync
+  setTimeout(reloadAll, 1200)
 }
 
 // ===== ACTIONS =====
